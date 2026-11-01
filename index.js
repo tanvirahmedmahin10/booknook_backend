@@ -40,6 +40,12 @@ app.get('/all-books/:id', async(req, res) => {
   const result = await bookCollection.findOne(query);
   res.send(result)
 });
+app.get('/my-books/:email' ,async(req, res) => {
+    let email=req.params.email
+    const query={user_email: email}
+  const result = await bookCollection.find(query).toArray();
+  res.send(result)
+});
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
