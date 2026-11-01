@@ -20,7 +20,13 @@ async function MONGODB() {
 const db=await MONGODB()
 const bookDatabase=client.db("assignment-fullstack");
 const bookCollection=bookDatabase.collection("allbooks")
-
+app.get('/', (req, res) => {
+  res.send('Hello World!');
+});
+app.get('/all-books', async(req, res) => {
+    const books= await bookCollection.find().toArray()
+  res.send(books);
+});
 
 
 app.listen(port, () => {
