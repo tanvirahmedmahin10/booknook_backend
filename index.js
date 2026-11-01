@@ -28,7 +28,12 @@ app.get('/all-books', async(req, res) => {
   res.send(books);
 });
 
+app.post('/all-books',async(req, res)=>{
+  let data=req.body
+  const result = await bookCollection.insertOne(data);
+  res.send(result)
 
+})
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
