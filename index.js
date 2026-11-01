@@ -71,6 +71,12 @@ app.patch('/my-books/:email/:id', async(req, res) => {
   const result = await bookCollection.updateOne(query,updateDoc);
   res.send(result)
 });
+app.delete('/my-books/:email/:id', async(req, res) => {
+    const id=req.params.id
+    const query={_id:new ObjectId(id)}
+  const result = await bookCollection.deleteOne(query);
+  res.send(result)
+});
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
