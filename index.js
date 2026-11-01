@@ -66,26 +66,30 @@ app.get('/my-borrows' ,async(req, res) => {
 app.get('/my-borrows/:email' ,async(req, res) => {
     let email=req.params.email
     const query={user_email: email}
-  const result = await bookCollection.find(query).toArray();
+  const result = await borrowCollection.find(query).toArray();
   res.send(result)
 });
 app.get('/my-borrows/:email/:bookId', async (req, res) => {
   try {
-    const { email, bookId } = req.params;
-    
-    // Check if a record exists matching both user email and the book's identifier
-    const existing = await borrowCollection.findOne({
-      user_email: email,
-      $or: [{ _id: bookId }, { book_id: bookId }]
+    const email = req.params.email?.trim();
+    const bookId = req.params.bookId?.trim();
+
+    const data = await borrowCollection.findOne({
+      user_email: { $regex: `^${email}$`, $options: "i" },
+      $or: [
+        { book_id: bookId },
+        { _id: ObjectId.isValid(bookId) ? new ObjectId(bookId) : bookId }
+      ]
     });
 
-    res.send({ isBorrowed: !!existing });
+    res.send({
+      isBorrowed: Boolean(data),
+      data: data || null,
+    });
   } catch (error) {
-    console.error("Error checking borrow status:", error);
-    res.status(500).send({ message: "Server error", error });
+    res.status(500).send({ isBorrowed: false, error: error.message });
   }
 });
-
 app.patch('/my-books/:email/:id', async(req, res) => {
     const id=req.params.id
     const updateData=req.body
@@ -109,6 +113,13 @@ app.delete('/my-books/:email/:id', async(req, res) => {
     const id=req.params.id
     const query={_id:new ObjectId(id)}
   const result = await bookCollection.deleteOne(query);
+  res.send(result)
+});
+
+app.delete('/my-borrows/:email/:id', async(req, res) => {
+    const id=req.params.id
+    const query={_id:new ObjectId(id)}
+  const result = await borrowCollection.deleteOne(query);
   res.send(result)
 });
 app.listen(port, () => {
