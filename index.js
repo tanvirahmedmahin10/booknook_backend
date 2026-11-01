@@ -20,6 +20,7 @@ async function MONGODB() {
 const db=await MONGODB()
 const bookDatabase=client.db("assignment-fullstack");
 const bookCollection=bookDatabase.collection("allbooks")
+const borrowCollection=bookDatabase.collection('borrowBooks')
 app.get('/', (req, res) => {
   res.send('Hello World!');
 });
@@ -52,6 +53,39 @@ app.get('/my-books/:email/:id', async(req, res) => {
   const result = await bookCollection.findOne(query);
   res.send(result)
 });
+app.post('/my-borrows' ,async(req, res) => {
+    const query=req.body
+  const result = await borrowCollection.insertOne(query)
+  res.send(result)
+});
+app.get('/my-borrows' ,async(req, res) => {
+  
+  const result = await borrowCollection.find().toArray();
+  res.send(result)
+});
+app.get('/my-borrows/:email' ,async(req, res) => {
+    let email=req.params.email
+    const query={user_email: email}
+  const result = await bookCollection.find(query).toArray();
+  res.send(result)
+});
+app.get('/my-borrows/:email/:bookId', async (req, res) => {
+  try {
+    const { email, bookId } = req.params;
+    
+    // Check if a record exists matching both user email and the book's identifier
+    const existing = await borrowCollection.findOne({
+      user_email: email,
+      $or: [{ _id: bookId }, { book_id: bookId }]
+    });
+
+    res.send({ isBorrowed: !!existing });
+  } catch (error) {
+    console.error("Error checking borrow status:", error);
+    res.status(500).send({ message: "Server error", error });
+  }
+});
+
 app.patch('/my-books/:email/:id', async(req, res) => {
     const id=req.params.id
     const updateData=req.body
