@@ -1,74 +1,123 @@
 import express from 'express';
-import cors from 'cors'
-import  {MongoClient, ObjectId} from 'mongodb'
-import 'dotenv/config'
+import cors from 'cors';
+import { MongoClient, ObjectId } from 'mongodb';
+import 'dotenv/config';
+
 const app = express();
 const port = 8000;
+
 app.use(cors());
-app.use(express.json())
-const client = new MongoClient(process.env.MONGO_DB_URL)
+app.use(express.json());
+
+const client = new MongoClient(process.env.MONGO_DB_URL);
+
 async function MONGODB() {
   try {
-  
     await client.connect();
-   
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } catch(err) {
+  } catch (err) {
     console.log(err);
   }
 }
-const db=await MONGODB()
-const bookDatabase=client.db("assignment-fullstack");
-const bookCollection=bookDatabase.collection("allbooks")
-const borrowCollection=bookDatabase.collection('borrowBooks')
+await MONGODB();
+
+const bookDatabase = client.db("assignment-fullstack");
+const bookCollection = bookDatabase.collection("allbooks");
+const borrowCollection = bookDatabase.collection('borrowBooks');
+
 app.get('/', (req, res) => {
   res.send('Hello World!');
 });
-app.get('/all-books', async(req, res) => {
-    const books= await bookCollection.find().toArray()
+
+app.get('/all-books', async (req, res) => {
+  const books = await bookCollection.find().toArray();
   res.send(books);
 });
 
-app.post('/all-books',async(req, res)=>{
-  let data=req.body
+app.post('/all-books', async (req, res) => {
+  let data = req.body;
+  // Ensure total_copies is saved as a number
+  if (data.total_copies !== undefined) {
+    data.total_copies = Number(data.total_copies);
+  }
   const result = await bookCollection.insertOne(data);
-  res.send(result)
+  res.send(result);
+});
+const verifyApi=(req,res,next)=>{
+  const authHeader=req.headers.authorization
+  if(!authHeader){
+    return res.status(401).send({msg:'Unauthorized'})
+  }
+  next()
+  console.log(authHeader);
+}
 
-})
-app.get('/all-books/:id', async(req, res) => {
-    const id=req.params.id
-    const query={_id:new ObjectId(id)}
-  const result = await bookCollection.findOne(query);
-  res.send(result)
-});
-app.get('/my-books/:email' ,async(req, res) => {
-    let email=req.params.email
-    const query={user_email: email}
-  const result = await bookCollection.find(query).toArray();
-  res.send(result)
-});
-app.get('/my-books/:email/:id', async(req, res) => {
-    const id=req.params.id
-    const query={_id:new ObjectId(id)}
-  const result = await bookCollection.findOne(query);
-  res.send(result)
-});
-app.post('/my-borrows' ,async(req, res) => {
-    const query=req.body
-  const result = await borrowCollection.insertOne(query)
-  res.send(result)
-});
-app.get('/my-borrows' ,async(req, res) => {
+app.get('/all-books/:id',verifyApi, async (req, res) => {
   
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+  const result = await bookCollection.findOne(query);
+  res.send(result);
+});
+
+app.get('/my-books/:email', async (req, res) => {
+  let email = req.params.email;
+  const query = { user_email: email };
+  const result = await bookCollection.find(query).toArray();
+  res.send(result);
+});
+
+app.get('/my-books/:email/:id', async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+  const result = await bookCollection.findOne(query);
+  res.send(result);
+});
+
+app.post('/my-borrows', async (req, res) => {
+  try {
+    const borrowData = req.body;
+    const bookId = borrowData.book_id;
+
+    if (!bookId) {
+      return res.status(400).send({ error: "Missing book_id in request body." });
+    }
+
+    const updateResult = await bookCollection.updateOne(
+      { 
+        _id: new ObjectId(bookId), 
+        total_copies: { $gt: 0 } 
+      },
+      { 
+        $inc: { total_copies: -1 } 
+      }
+    );
+
+    if (updateResult.matchedCount === 0) {
+      return res.status(400).send({ error: "Book is out of stock or does not exist." });
+    }
+
+    // 2. Insert into borrows collection
+    const result = await borrowCollection.insertOne(borrowData);
+    res.send(result);
+  } catch (error) {
+    console.error("Borrow error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+app.get('/my-borrows', async (req, res) => {
   const result = await borrowCollection.find().toArray();
-  res.send(result)
+  res.send(result);
 });
-app.get('/my-borrows/:email' ,async(req, res) => {
-    let email=req.params.email
-    const query={user_email: email}
+
+app.get('/my-borrows/:email', async (req, res) => {
+  let email = req.params.email;
+  const query = { user_email: email };
   const result = await borrowCollection.find(query).toArray();
-  res.send(result)
+  res.send(result);
 });
+
 app.get('/my-borrows/:email/:bookId', async (req, res) => {
   try {
     const email = req.params.email?.trim();
@@ -90,38 +139,62 @@ app.get('/my-borrows/:email/:bookId', async (req, res) => {
     res.status(500).send({ isBorrowed: false, error: error.message });
   }
 });
-app.patch('/my-books/:email/:id', async(req, res) => {
-    const id=req.params.id
-    const updateData=req.body
-    const query={_id:new ObjectId(id)}
-    const updateDoc = {
-      $set: {
-        title: updateData.title,
-        author: updateData.author,
-        category: updateData.category,
-        published_year: Number(updateData.published_year),
-        rating: Number(updateData.rating),
-        price: Number(updateData.price),
-        cover_image: updateData.cover_image,
-        description: updateData.description,
-      },
-    };
-  const result = await bookCollection.updateOne(query,updateDoc);
-  res.send(result)
-});
-app.delete('/my-books/:email/:id', async(req, res) => {
-    const id=req.params.id
-    const query={_id:new ObjectId(id)}
-  const result = await bookCollection.deleteOne(query);
-  res.send(result)
+
+app.patch('/my-books/:email/:id', async (req, res) => {
+  const id = req.params.id;
+  const updateData = req.body;
+  const query = { _id: new ObjectId(id) };
+  const updateDoc = {
+    $set: {
+      title: updateData.title,
+      author: updateData.author,
+      category: updateData.category,
+      total_copies: Number(updateData.total_copies),
+      published_year: Number(updateData.published_year),
+      rating: Number(updateData.rating),
+      price: Number(updateData.price),
+      cover_image: updateData.cover_image,
+      description: updateData.description,
+    },
+  };
+  const result = await bookCollection.updateOne(query, updateDoc);
+  res.send(result);
 });
 
-app.delete('/my-borrows/:email/:id', async(req, res) => {
-    const id=req.params.id
-    const query={_id:new ObjectId(id)}
-  const result = await borrowCollection.deleteOne(query);
-  res.send(result)
+app.delete('/my-books/:email/:id', async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+  const result = await bookCollection.deleteOne(query);
+  res.send(result);
 });
+
+app.delete('/my-borrows/:email/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+
+   
+    const borrowedRecord = await borrowCollection.findOne(query);
+
+    if (!borrowedRecord) {
+      return res.status(404).send({ error: "Borrow record not found." });
+    }
+
+    if (borrowedRecord.book_id) {
+      await bookCollection.updateOne(
+        { _id: new ObjectId(borrowedRecord.book_id) },
+        { $inc: { total_copies: 1 } }
+      );
+    }
+
+    const result = await borrowCollection.deleteOne(query);
+    res.send(result);
+  } catch (error) {
+    console.error("Return error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
