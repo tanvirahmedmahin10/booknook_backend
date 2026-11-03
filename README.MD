@@ -39,7 +39,7 @@ npm install
 
 ```env
 MONGO_DB_URL=your_mongodb_connection_string
-CLIENT_URL=http://localhost:3000
+CLIENT_URL=https://booknook-frontend-seven.vercel.app
 ```
 
 **4. Start the server**
@@ -48,7 +48,7 @@ CLIENT_URL=http://localhost:3000
 node index.js
 ```
 
-Server runs at `http://localhost:8000`.
+Server runs at `https://booknook-backend-wine.vercel.app`.
 
 ## 👨‍💻 Author
 
