@@ -152,23 +152,28 @@ app.get('/my-borrows/:email/:bookId', async (req, res) => {
   }
 });
 
-app.patch('/my-books/:email/:id',verifyToken, async (req, res) => {
+app.patch('/my-books/:email/:id', verifyToken, async (req, res) => {
   const id = req.params.id;
   const updateData = req.body;
   const query = { _id: new ObjectId(id) };
+
+  const totalCopies = updateData.total_copies ?? updateData.copies;
+
   const updateDoc = {
     $set: {
       title: updateData.title,
       author: updateData.author,
       category: updateData.category,
-      total_copies: Number(updateData.total_copies),
+      total_copies: Number(totalCopies) || 0,
       published_year: Number(updateData.published_year),
       rating: Number(updateData.rating),
       price: Number(updateData.price),
       cover_image: updateData.cover_image,
       description: updateData.description,
+      in_stock: Number(totalCopies) > 0,
     },
   };
+
   const result = await bookCollection.updateOne(query, updateDoc);
   res.send(result);
 });
